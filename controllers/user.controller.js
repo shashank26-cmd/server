@@ -1,13 +1,14 @@
 import User from "../models/user.model.js";
+
 import path from "path";
+
+// Import the 'fs/promises' module for file system operations
 import fs from 'fs/promises';
+
 import cloudinary from 'cloudinary';
 
-
-
-
 const calculatePercentage = (user) => {
-    const totalFields = 5; // Assuming 5 fields in total (name, email, address, phoneNumber, image)
+    const totalFields = 5; 
     let completedFields = 0;
 
     // Check for the presence of fields
@@ -21,31 +22,56 @@ const calculatePercentage = (user) => {
     return (completedFields / totalFields) * 100;
 };
 
-
-
 const Next = async (req, res) => {
     try {
         const { name, email } = req.body;
-     
 
         const user = await User.create({ name, email });
+
+        // Calculate the completion percentage based on the user data
         const percentage = calculatePercentage(user);
+
         res.json({ success: true, percentage, userId: user._id });
     } catch (error) {
         console.error('Error submitting first-level form:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
+const GetPercentage = async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        // Find the user by ID
+        const user = await User.findOne({ _id: userId });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Retrieve the completion percentage from the user document
+        const percentage = user.percentage || 0;
+
+        res.json({ success: true, percentage });
+    } catch (error) {
+        console.error('Error retrieving percentage:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+
+
 const Submit = async (req, res) => {
     try {
         const { address, phoneNumber } = req.body;
+
         const user = await User.findOne({ _id: req.params.id });
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Retrieve the previous percentage from the user document
+        // Retrieve the previous completion percentage from the user document
         const prevPercentage = user.percentage || 0;
 
         // Update only the provided fields for the second level
@@ -61,34 +87,32 @@ const Submit = async (req, res) => {
         if (req.file) {
             console.log('Starting img upload to Cloudinary');
 
+            // Upload the file to Cloudinary and obtain the result
             const result = await cloudinary.uploader.upload(req.file.path, {
                 folder: 'user-images',
                 width: 250,
                 height: 250,
             });
-            
+
+            // Check if the image upload was successful
             if (!result || !result.secure_url) {
                 console.error('Error uploading image to Cloudinary');
                 return res.status(500).json({ error: 'Error uploading image to Cloudinary' });
             }
-            
+
             console.log('Image uploaded successfully', result);
-            
-            // Save the image URL from Cloudinary in the database
             user.image = result.secure_url;
-            
         }
 
-        // Calculate the new percentage based on the completed fields
         const newPercentage = calculatePercentage(user);
 
-        // Calculate the final percentage by adding the previous and new percentages
+        // Calculate the final completion percentage by adding the previous and new percentages
         const finalPercentage = prevPercentage + newPercentage;
 
-        // Update the user document with the final percentage
+        // Update the user document with the final completion percentage
         user.percentage = finalPercentage;
 
-        // Save the user document in the database
+        // Save the updated user document in the database
         await user.save();
 
         res.json({ success: true, percentage: finalPercentage, savedData: user });
@@ -98,6 +122,4 @@ const Submit = async (req, res) => {
     }
 };
 
-
-
-export { Next, Submit };
+export { Next, Submit,GetPercentage };
