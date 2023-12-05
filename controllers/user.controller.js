@@ -37,7 +37,6 @@ const Next = async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
-
 const GetPercentage = async (req, res) => {
     try {
         const userId = req.params.id;
@@ -49,8 +48,8 @@ const GetPercentage = async (req, res) => {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Retrieve the completion percentage from the user document
-        const percentage = user.percentage || 0;
+        // Recalculate the completion percentage based on the user data
+        const percentage = calculatePercentage(user);
 
         res.json({ success: true, percentage });
     } catch (error) {
